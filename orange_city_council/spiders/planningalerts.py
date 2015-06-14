@@ -3,6 +3,7 @@ import scrapy
 from calendar import monthrange
 from datetime import datetime, date
 from urlparse import urljoin
+from urllib import quote
 
 from ..items import DevelopmentApplicationItem
 
@@ -14,6 +15,7 @@ class PlanningalertsSpider(scrapy.Spider):
     #   webapp sets up its server-side session state at this point.
     #   Trying to fetch any direct pages without this fails miserably. :(
     SEARCH_URL = 'https://ecouncil.orange.nsw.gov.au/eservice/daEnquiryInit.do?nodeNum=24'
+    FEEDBACK_URL = 'mailto:council@orange.nsw.gov.au'
 
     start_urls = (
         SEARCH_URL,
@@ -39,6 +41,12 @@ class PlanningalertsSpider(scrapy.Spider):
             date(today.year, today.month, max_day)
         )
 
+    def _get_comment_url(self, council_reference):
+        return "{0}?subject={1}".format(
+            self.FEEDBACK_URL,
+            quote("Development Application Enquiry: " + council_reference)
+        )
+
     def parse(self, response):
         """ Main entry point of the scraper.  After hitting the
         magic search page, and the session state set up for us,
@@ -59,8 +67,7 @@ class PlanningalertsSpider(scrapy.Spider):
                 'lodgeRangeType': 'on',
                 'searchMode': 'A'
             },
-            callback=self.parse_search_results,
-            dont_click=True
+            callback=self.parse_search_results
         )
 
     def parse_search_results(self, response):
@@ -105,7 +112,7 @@ class PlanningalertsSpider(scrapy.Spider):
         # Damn. Site keeps all identifiers hidden in the session.
         # So can't provide direct link to item...
         result['info_url'] = self.SEARCH_URL
-        result['comment_url'] = 'http://www.orange.nsw.gov.au/site/index.cfm?display=247000#Having'
+        result['comment_url'] = self._get_comment_url(result['council_reference'])
 
         return result
 
